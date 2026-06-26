@@ -1,0 +1,10 @@
+# =====================================================================
+# Git Services Configuration File (Development)
+# =====================================================================
+# Format: FOLDER_NAME=REPO_URL|BRANCH
+# - Lines starting with # are comments and will be ignored.
+# - FOLDER_NAME is the subdirectory name under "All Engine".
+# - REPO_URL is the GitHub clone URL.
+# - BRANCH is the branch to track (e.g., develop, main).
+
+Engine_Service=https://github.com/PRN232-Project/Engine-Service.git|develop
