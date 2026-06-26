@@ -1,0 +1,27 @@
+# Ignore the local service development directories (each service is a separate git repo)
+All Engine/
+
+# Ignore Docker database storage
+postgres_data/
+
+# User-specific files
+*.user
+*.userosscache
+*.sln.docstates
+
+# IDE files
+.vscode/
+.idea/
+bin/
+obj/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln.docstates
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

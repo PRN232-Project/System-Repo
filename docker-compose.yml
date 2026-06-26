@@ -1,0 +1,56 @@
+---
+services:
+  # PostgreSQL Database Service
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: postgres_db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=grading_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=12345
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d grading_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - grading_network
+
+  # Grading Engine API Service
+  engine-service:
+    build:
+      context: ./All Engine/Engine_Service
+      dockerfile: Dockerfile
+    container_name: engine_service
+    # Maps local port 5174 to container port 8080 so frontend remains
+    # fully accessible at http://localhost:5174
+    ports:
+      - "5174:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DB_HOST=postgres-db
+    volumes:
+      # Mount sample student submissions folder to allow the grading engine
+      # to scan and build files on host
+      - type: bind
+        source: ./All Engine/Engine_Service/sample-student-submission
+        target: /app/sample-student-submission
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - grading_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  grading_network:
+    driver: bridge
