@@ -50,15 +50,15 @@ for /f "usebackq eol=# tokens=1,* delims==" %%A in ("git_config.txt") do (
                 echo   [3] Khong commit code va thuc hien pull luon
                 echo.
                 
-                set /p CHOICE="Nhap lua chon cua ban [1, 2, 3]: "
+                set /p CHOICE="Nhap lua chon cua ban [1, 2, 3]: " <con
                 
                 if "!CHOICE!"=="1" (
                     echo.
-                    set /p NEW_BRANCH="Nhap ten nhanh moi: "
+                    set /p NEW_BRANCH="Nhap ten nhanh moi: " <con
                     if "!NEW_BRANCH!"=="" (
                         echo [LOI] Ten nhanh khong duoc de trong.
                     ) else (
-                        set /p COMMIT_MSG="Nhap commit message - Nhan Enter de lay mac dinh: "
+                        set /p COMMIT_MSG="Nhap commit message - Nhan Enter de lay mac dinh: " <con
                         if "!COMMIT_MSG!"=="" set "COMMIT_MSG=Auto update before pull"
                         
                         echo Dang tao nhanh moi: !NEW_BRANCH!...
@@ -73,7 +73,7 @@ for /f "usebackq eol=# tokens=1,* delims==" %%A in ("git_config.txt") do (
                     )
                 ) else if "!CHOICE!"=="2" (
                     echo.
-                    set /p COMMIT_MSG="Nhap commit message - Nhan Enter de lay mac dinh: "
+                    set /p COMMIT_MSG="Nhap commit message - Nhan Enter de lay mac dinh: " <con
                     if "!COMMIT_MSG!"=="" set "COMMIT_MSG=Auto update before pull"
                     
                     echo Dang commit code vao nhanh hien tai...
@@ -109,4 +109,4 @@ for /f "usebackq eol=# tokens=1,* delims==" %%A in ("git_config.txt") do (
 echo.
 echo =====================================================================
 echo Nhan phim ENTER de thoat...
-set /p DUMMY=
+set /p DUMMY= <con
