@@ -109,18 +109,34 @@ for /f "usebackq eol=# tokens=1,* delims==" %%A in ("git_config.txt") do (
         REM Restore and Build the project
         if exist "!TARGET_PATH!" (
             echo.
-            echo Restoring NuGet packages for !SERVICE_NAME!...
             pushd "!TARGET_PATH!"
-            dotnet restore
-            if !ERRORLEVEL! neq 0 (
-                echo [WARNING] dotnet restore failed for !SERVICE_NAME!
-            ) else (
-                echo Building !SERVICE_NAME!...
-                dotnet build
+            if /i "!SERVICE_NAME!"=="FE_Service" (
+                echo Cài đặt Node dependencies cho !SERVICE_NAME!...
+                call npm install
                 if !ERRORLEVEL! neq 0 (
-                    echo [WARNING] dotnet build failed for !SERVICE_NAME!
+                    echo [WARNING] npm install failed for !SERVICE_NAME!
                 ) else (
-                    echo Build succeeded for !SERVICE_NAME!!
+                    echo Building !SERVICE_NAME!...
+                    call npm run build
+                    if !ERRORLEVEL! neq 0 (
+                        echo [WARNING] npm run build failed for !SERVICE_NAME!
+                    ) else (
+                        echo Build succeeded for !SERVICE_NAME!!
+                    )
+                )
+            ) else (
+                echo Restoring NuGet packages for !SERVICE_NAME!...
+                dotnet restore
+                if !ERRORLEVEL! neq 0 (
+                    echo [WARNING] dotnet restore failed for !SERVICE_NAME!
+                ) else (
+                    echo Building !SERVICE_NAME!...
+                    dotnet build
+                    if !ERRORLEVEL! neq 0 (
+                        echo [WARNING] dotnet build failed for !SERVICE_NAME!
+                    ) else (
+                        echo Build succeeded for !SERVICE_NAME!!
+                    )
                 )
             )
             popd
