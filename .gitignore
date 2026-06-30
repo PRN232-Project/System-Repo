@@ -1,5 +1,6 @@
 # Ignore the local service development directories (each service is a separate git repo)
-All Engine/
+All Engine/*
+!All Engine/Common/
 
 # Ignore Docker database storage
 postgres_data/
