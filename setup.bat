@@ -57,7 +57,7 @@ git branch -M !DEFAULT_BRANCH!
 git branch --set-upstream-to=origin/!DEFAULT_BRANCH! !DEFAULT_BRANCH!
 
 echo Dang dong bo va gop code tu repository goc...
-git pull origin !DEFAULT_BRANCH! --allow-unrelated-histories -X ours
+git pull origin !DEFAULT_BRANCH! --allow-unrelated-histories -X ours --no-edit
 echo Dong bo code goc hoan tat.
 echo.
 
