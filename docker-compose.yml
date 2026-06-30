@@ -101,6 +101,18 @@ services:
     networks:
       - grading_network
 
+  # FE Service
+  fe-service:
+    build:
+      context: ./All Engine/FE_Service
+      dockerfile: Dockerfile
+    container_name: fe_service
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+    networks:
+      - grading_network
+
 volumes:
   postgres_data:
     driver: local

@@ -6,8 +6,8 @@ echo                Grading System - Local Run Script
 echo =====================================================================
 echo.
 
-REM --- Step 1: Release Ports 5174, 5175, 5176, 5177 if in use ---
-for %%P in (5174 5175 5176 5177) do (
+REM --- Step 1: Release Ports 5173, 5174, 5175, 5176, 5177 if in use ---
+for %%P in (5173 5174 5175 5176 5177) do (
     echo Checking if port %%P is currently occupied...
     for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":%%P" ^| findstr "LISTENING"') do (
         echo Found process ID %%a occupying port %%P. Terminating process...
@@ -28,3 +28,6 @@ start "Notification Service" dotnet run --project "All Engine\Notification_Servi
 
 echo Starting Exam Account Service API locally...
 start "Exam Account Service" dotnet run --project "All Engine\Exam_Account_Service\PRN232.ExamAccountService.Api\PRN232.ExamAccountService.Api.csproj"
+
+echo Starting FE Service locally...
+start "FE Service" cmd /k "cd /d "%~dp0All Engine\FE_Service" && npm install && npm run dev"

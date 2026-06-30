@@ -11,3 +11,4 @@ Engine_Service=https://github.com/PRN232-Project/Engine-Service.git|develop
 Plagiarism_Service=https://github.com/PRN232-Project/Plagiarism-Service.git|develop
 Notification_Service=https://github.com/PRN232-Project/Notification-Service.git|develop
 Exam_Account_Service=https://github.com/PRN232-Project/Exam-Account-Service.git|develop
+FE_Service=https://github.com/PRN232-Project/FE-Service.git|develop
