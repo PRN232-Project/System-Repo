@@ -21,13 +21,13 @@ echo Starting Grading Engine API locally...
 start "Engine Service" dotnet run --project "All Engine\Engine_Service\PRN232.GradingEngine.Api\PRN232.GradingEngine.Api.csproj"
 
 echo Starting Plagiarism Service API locally...
-start "Plagiarism Service" dotnet run --project "All Engine\Plagiarism_Service\PRN232.PlagiarismService.Api\PRN232.PlagiarismService.Api.csproj"
+start "Plagiarism Service" dotnet run --project "All Engine\Plagiarism_Service\PRN232.Plagiarism.Api\PRN232.Plagiarism.Api.csproj"
 
 echo Starting Notification Service API locally...
-start "Notification Service" dotnet run --project "All Engine\Notification_Service\PRN232.NotificationService.Api\PRN232.NotificationService.Api.csproj"
+start "Notification Service" dotnet run --project "All Engine\Notification_Service\PRN232.Notification.Api\PRN232.Notification.Api.csproj"
 
 echo Starting Exam Account Service API locally...
-start "Exam Account Service" dotnet run --project "All Engine\Exam_Account_Service\PRN232.ExamAccountService.Api\PRN232.ExamAccountService.Api.csproj"
+start "Exam Account Service" dotnet run --project "All Engine\Exam_Account_Service\PRN232.ExamAccount.Api\PRN232.ExamAccount.Api.csproj"
 
 echo Starting FE Service locally...
 start "FE Service" cmd /k "cd /d "%~dp0All Engine\FE_Service" && npm install && npm run dev"
