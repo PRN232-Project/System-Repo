@@ -1,6 +1,6 @@
 # Technical Architecture Plan — PRN232 PE Evaluation Tool (v2)
 
-> Project Code: CP-2025-01 | Group: G-05
+> Project Code: CP-2026-01 | Group: G-05
 > v2 — cập nhật sau buổi thảo luận sâu, chốt 14 quyết định kỹ thuật cụ thể. Áp dụng **Clean Architecture** + **Domain-Driven Design (DDD)**, kiến trúc tổng thể gồm **2 service tách rời**: Grading Engine và Admin Portal.
 
 ---
