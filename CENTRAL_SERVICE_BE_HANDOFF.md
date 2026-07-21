@@ -1,312 +1,191 @@
-# Central Service BE Handoff
+# Central Service BE Handoff - Three Role Workflow
 
-## Scope da hoan thanh
+## Trạng thái hiện tại
 
-- Service: `Exam-Account-Service`
-- Huong hien tai: REST API + role permission + RabbitMQ consume/publish + gRPC goi sang `Notification-Service`
-- Roles duoc ho tro:
-  - `Admin`
-  - `Lecturer`
-  - `Student`
+- Roles: `Admin`, `ExamOfficer`, `Lecturer`.
+- Sinh viên là master data, không phải account.
+- Authentication: JWT Bearer + rotating refresh token.
+- Database: PostgreSQL/Supabase, schema `exam`.
+- Swagger: `/swagger`.
+- Local path bài thi tuyệt đối không gửi hoặc lưu ở Central Service.
 
-## Database va migration
+Tài khoản seed local/demo, mật khẩu `123456`:
 
-- EF migration da tao: `Exam-Account-Service/PRN232.ExamAccount.Infrastructure/Persistence/Migrations/20260714150643_InitCentralService.cs`
-- Da apply migration len Supabase thanh cong bang `dotnet ef database update`
-- Seed mac dinh da duoc chay qua `Program.cs`
-- Backup schema cu truoc khi reset:
-  - `Exam-Account-Service/supabase-exam-backup-before-reset.sql`
+- `admin`
+- `examofficer1`
+- `lecturer1`
 
-## Trang thai Supabase hien tai
+Seed nghiệp vụ: `ROOM-1`, sinh viên `SE000001`, mã đề `PRN223-DEMO`, ca thi `PE-DEMO-2026`, batch `BATCH-DEMO-001`.
 
-- Schema `exam` da duoc reset va tao lai theo migration moi
-- Seed hien tai:
-  - `admin / 123456`
-  - `lecturer1 / 123456`
-  - `student1 / 123456`
-  - room mac dinh: `ROOM-1`
+## Authentication
 
-## Luu y van hanh
+### `POST /api/auth/login`
 
-- Connection string Supabase dang nam trong:
-  - [appsettings.json](/D:/Mon_hoc/Ky_8/PRN223/Assgment/Exam-Account-Service/PRN232.ExamAccount.Api/appsettings.json)
-- Neu RabbitMQ chua bat, API van boot binh thuong.
-- `GradingResultConsumer` da duoc doi sang retry nen khong lam sap API khi RabbitMQ offline.
+```json
+{ "userName": "lecturer1", "password": "123456" }
+```
 
-## Auth/permission cho FE
+### `POST /api/auth/refresh`
 
-Hien tai service dang dung header don gian de FE test nhanh, chua dung JWT:
+```json
+{ "refreshToken": "token từ login" }
+```
 
-- `X-User-Id: <guid>`
-- `X-User-Role: Admin | Lecturer | Student`
+Mọi API còn lại gửi `Authorization: Bearer <accessToken>`.
 
-FE flow de login:
+## Admin API
 
-1. Goi `POST /api/auth/login`
-2. Luu `userId`, `role`
-3. Gui 2 header tren cho cac request tiep theo
-
-## API cho FE
-
-Base URL mac dinh: `https://localhost:<port>`
-
-### Auth
-
-- `POST /api/auth/login`
-  - body:
-  ```json
-  {
-    "userName": "admin",
-    "password": "123456"
-  }
-  ```
-
-### Users
-
-- `GET /api/users`
-  - Admin only
-  - query optional: `role`
-- `GET /api/users/{userId}`
-  - Admin only
+- `GET /api/users?role=Lecturer`
 - `POST /api/users`
-  - Admin only
-- `PUT /api/users/{userId}`
-  - Admin only
-- `DELETE /api/users/{userId}`
-  - Admin only
-  - se chan neu lecturer dang quan ly room hoac user da co submission
-
-Body `POST/PUT /api/users`:
+- `PUT /api/users/{id}`
+- `DELETE /api/users/{id}`
 
 ```json
 {
-  "userName": "student2",
+  "userName": "lecturer2",
   "password": "123456",
-  "studentCode": "SE000002",
-  "fullName": "Student Two",
-  "email": "student2@local",
-  "role": "Student",
+  "fullName": "Lecturer Two",
+  "email": "lecturer2@local",
+  "role": "Lecturer",
   "isActive": true
 }
 ```
 
-### Rooms
+Admin bị trả `403` khi gọi API phòng, sinh viên, đề hoặc kết quả.
 
-- `GET /api/rooms`
-  - Admin thay tat ca
-  - Lecturer chi thay room minh quan ly
-- `GET /api/rooms/{roomId}`
-- `POST /api/rooms`
-  - Admin only
-- `PUT /api/rooms/{roomId}`
-  - Admin only
-- `DELETE /api/rooms/{roomId}`
-  - Admin only
-  - se chan neu room dang co exam
+## ExamOfficer API
 
-Body `POST/PUT /api/rooms`:
+### Master data
+
+- `GET/POST/PUT /api/students`
+- `POST /api/students/import` nhận mảng cùng cấu trúc student.
+- `GET/POST/PUT/DELETE /api/rooms`
+- `GET /api/directory/lecturers` chỉ đọc danh sách giảng viên active.
+
+Student body:
 
 ```json
-{
-  "code": "ROOM-2",
-  "name": "Java Lab",
-  "lecturerId": "LECTURER_GUID"
-}
+{ "studentCode": "SE180001", "fullName": "Nguyen Van A", "email": "a@local", "className": "SE18A", "isActive": true }
 ```
 
-### Exams
+Room body:
 
-- `GET /api/exams`
-  - Admin/Lecturer/Student
-  - Lecturer chi thay exam cua room minh
-- `GET /api/exams/{examId}`
-- `POST /api/exams`
-  - Admin only
-- `PUT /api/exams/{examId}`
-  - Admin only
-- `DELETE /api/exams/{examId}`
-  - Admin only
-  - se chan neu exam da co submission
-- `GET /api/exams/{examId}/dashboard`
-  - Admin/Lecturer
-- `GET /api/exams/{examId}/submissions/{submissionId}`
-  - Admin/Lecturer
+```json
+{ "code": "ROOM-2", "name": "Lab 2", "location": "Building A", "isActive": true }
+```
 
-Body `POST/PUT /api/exams`:
+### Mã đề
+
+- `GET/POST/PUT /api/exam-papers`
 
 ```json
 {
-  "roomId": "ROOM_GUID",
-  "code": "EXAM-OOP-01",
-  "title": "OOP Practical Exam",
+  "code": "PRN223-A",
+  "title": "PRN223 PE - A",
+  "rubricVersion": "1.0",
   "maxScore": 10,
-  "solutionPattern": "src/**/*.csproj",
+  "solutionPattern": "*.sln",
   "requireAppSettings": true,
   "forbidHardcodedConnectionString": true,
   "timeoutSeconds": 15,
-  "plagiarismKeywords": ["SqlConnection", "HardCode"]
+  "plagiarismKeywords": [],
+  "sections": [
+    { "name": "Unit Tests", "weight": 10, "testFilter": "FullyQualifiedName~Unit" }
+  ],
+  "isActive": true
 }
 ```
 
-### Exam Sections
+### Ca thi và candidates
 
-- `GET /api/exam-sections?examId={examId}`
-- `GET /api/exam-sections/{sectionId}`
-- `POST /api/exam-sections`
-  - Admin only
-- `PUT /api/exam-sections/{sectionId}`
-  - Admin only
-- `DELETE /api/exam-sections/{sectionId}`
-  - Admin only
+- `GET/POST /api/exam-sessions`
+- `POST /api/exam-sessions/{id}/candidates`
+- `GET /api/exam-sessions/{id}/candidates`
+- `POST /api/exam-sessions/{id}/ready`
 
-Body `POST/PUT /api/exam-sections`:
+Create session:
 
 ```json
-{
-  "examId": "EXAM_GUID",
-  "name": "Unit Test",
-  "weight": 4,
-  "testFilter": "FullyQualifiedName~Unit"
-}
+{ "code": "PE-SU26-01", "title": "Ca 1", "roomId": "uuid", "examPaperId": "uuid", "scheduledAtUtc": "2026-07-21T08:00:00Z" }
 ```
 
-### Submissions
-
-- `POST /api/Submissions`
-  - Student only
-  - student chi duoc nop cho chinh minh
-- `GET /api/Submissions`
-  - Student chi thay bai minh
-  - Lecturer chi thay bai trong room minh quan ly
-- `GET /api/Submissions/{submissionId}`
-- `POST /api/Submissions/{submissionId}/regrade`
-  - Admin/Lecturer
-- `DELETE /api/Submissions/{submissionId}`
-  - Admin/Lecturer
-
-Body `POST /api/Submissions`:
+Add candidates:
 
 ```json
-{
-  "examId": "EXAM_GUID",
-  "studentId": "STUDENT_GUID",
-  "workspacePath": "D:/grading/submissions/se000001"
-}
+{ "studentIds": ["uuid-1", "uuid-2"] }
 ```
 
-### Notifications
+### Phân công và review
 
-- `GET /api/notifications?userId={userId}`
-- `GET /api/notifications/{notificationId}`
-- `POST /api/notifications/{notificationId}/read`
-- `DELETE /api/notifications/{notificationId}`
+- `GET /api/grading-batches`
+- `POST /api/grading-batches`
+- `GET /api/grading-batches/{id}`
+- `POST /api/grading-items/{id}/return`
+- `POST /api/grading-batches/{id}/accept`
 
-## Luong grading hien tai
+Create batch; `examCandidateIds: []` nghĩa là lấy tất cả candidate chưa vắng trong ca:
 
-1. Student submit bai qua `POST /api/Submissions`
-2. `Exam-Account-Service` publish job len RabbitMQ
-3. `Engine-Service` consume job va cham bai
-4. `Engine-Service` publish ket qua ve queue result
-5. `Exam-Account-Service` consume result
-6. Neu thanh cong:
-   - update diem
-   - update section results
-7. Neu loi:
-   - set `Submission.Status = Failed`
-   - luu `ErrorMessage`
-   - tao `NotificationRecord`
-   - goi gRPC sang `Notification-Service` de bao lecturer
+```json
+{ "code": "BATCH-001", "examSessionId": "uuid", "lecturerId": "uuid", "examCandidateIds": [] }
+```
 
-## Contract Engine can follow
+Return result:
 
-File contract:
+```json
+{ "reason": "Report thiếu section Unit Tests" }
+```
 
-- [SubmissionGradedEvent.cs](/D:/Mon_hoc/Ky_8/PRN223/Assgment/Exam-Account-Service/PRN232.ExamAccount.Application/Messaging/SubmissionGradedEvent.cs)
+## Lecturer/Local Agent API
 
-Payload Engine can publish ve RabbitMQ:
+- `GET /api/grading-batches/mine`
+- `GET /api/grading-batches/{id}` trả danh sách sinh viên và cấu hình mã đề.
+- `POST /api/grading-batches/{id}/start`
+- `POST /api/grading-items/{id}/match`
+- `POST /api/grading-items/{id}/attempts`
+- `POST /api/grading-items/{id}/retry`
+- `POST /api/grading-batches/{id}/submit`
+
+Match chỉ báo tìm thấy hay không; không gửi local path:
+
+```json
+{ "found": true, "note": null }
+```
+
+Submit attempt:
 
 ```json
 {
-  "submissionId": "SUBMISSION_GUID",
-  "examId": "EXAM_GUID",
-  "studentCode": "SE000001",
+  "clientRequestId": "local-agent-guid",
   "totalScore": 8.5,
-  "rawJsonReport": "{\"sectionResults\":[{\"name\":\"Unit Test\",\"score\":4,\"maxScore\":4,\"status\":\"Passed\",\"feedback\":\"OK\"}]}",
-  "hasErrors": false,
+  "rawJsonReport": "{\"sectionResults\":[]}",
+  "hasTechnicalError": false,
+  "errorCode": "",
   "errorMessage": "",
-  "completedAtUtc": "2026-07-14T15:30:00Z"
+  "rubricVersion": "1.0",
+  "completedAtUtc": "2026-07-21T10:00:00Z"
 }
 ```
 
-Neu cham bai loi, Engine phai gui:
+Nếu Docker/engine lỗi, gửi `hasTechnicalError=true`, `errorCode` và `errorMessage`. Build/test fail của bài sinh viên vẫn gửi `hasTechnicalError=false` với điểm/report hợp lệ.
 
-- `hasErrors = true`
-- `errorMessage` co noi dung ro rang
-- `rawJsonReport` co the rong
+`clientRequestId` là idempotency key; gửi lại cùng key không tạo attempt trùng.
 
-Vi du:
+## Notification
 
-```json
-{
-  "submissionId": "SUBMISSION_GUID",
-  "examId": "EXAM_GUID",
-  "studentCode": "SE000001",
-  "totalScore": 0,
-  "rawJsonReport": "",
-  "hasErrors": true,
-  "errorMessage": "Docker container timeout after 15 seconds",
-  "completedAtUtc": "2026-07-14T15:35:00Z"
-}
-```
+- `GET /api/notifications`
+- `POST /api/notifications/{id}/read`
 
-## Contract Notification gRPC
+## Trạng thái
 
-`Exam-Account-Service` se goi sang `Notification-Service` khi grading loi.
+- Batch: `Assigned`, `InProgress`, `SubmittedForReview`, `NeedsCorrection`, `Resubmitted`, `Accepted`.
+- Item: `Assigned`, `LocalMatched`, `Grading`, `Graded`, `TechnicalError`, `MissingSubmission`, `Submitted`, `ReturnedForCorrection`, `Accepted`.
 
-Proto dang dung:
-
-- `Notification-Service/PRN232.Notification.Api/Protos/notification.proto`
-
-Thong tin duoc gui:
-
-- `LecturerId`
-- `RoomId`
-- `ExamId`
-- `SubmissionId`
-- `Type`
-- `Title`
-- `Message`
-
-## Viec dong nghiep Engine can lam tiep
-
-- Consume dung queue grading job tu exchange `grading.exchange`
-- Publish ket qua ve queue result dung schema `SubmissionGradedEvent`
-- Dam bao `rawJsonReport.sectionResults[]` dung format ma `Exam-Account-Service` dang parse
-- Neu loi grading, phai gui `hasErrors=true` de trigger thong bao lecturer
-- Neu can them section-level metadata, thong nhat truoc khi doi contract
-
-## Lenh chay nhanh
-
-### Tao migration moi sau nay
-
-```powershell
-dotnet ef migrations add <MigrationName> --project PRN232.ExamAccount.Infrastructure --startup-project PRN232.ExamAccount.Api --output-dir Persistence/Migrations
-```
-
-### Apply migration
-
-```powershell
-dotnet ef database update --project PRN232.ExamAccount.Infrastructure --startup-project PRN232.ExamAccount.Api
-```
-
-### Run API
+## Chạy và migration
 
 ```powershell
 dotnet run --project PRN232.ExamAccount.Api
-```
-
-### Test
-
-```powershell
 dotnet test PRN232.ExamAccount.sln
+dotnet ef database update --project PRN232.ExamAccount.Infrastructure --startup-project PRN232.ExamAccount.Api
 ```
+
+EF migration history của service nằm tại `exam.__EFMigrationsHistory`, không dùng bảng history chung ở schema `public`.
