@@ -126,6 +126,7 @@ Add candidates:
 - `GET /api/grading-batches`
 - `POST /api/grading-batches`
 - `GET /api/grading-batches/{id}`
+- `GET /api/grading-batches/{id}/export-excel` xuất bảng điểm của batch.
 - `POST /api/grading-items/{id}/return`
 - `POST /api/grading-batches/{id}/accept`
 
@@ -147,6 +148,7 @@ Return result:
 - `GET /api/grading-batches/{id}` trả danh sách sinh viên và cấu hình mã đề.
 - `POST /api/grading-batches/{id}/start`
 - `POST /api/grading-batches/{id}/execution-package` cấp snapshot đề + execution token 4 giờ.
+- `GET /api/grading-batches/{id}/export-excel` tải bảng điểm `.xlsx`; giảng viên chỉ tải được batch của mình, khảo thí tải được mọi batch.
 - `POST /api/grading-items/{id}/match`
 - `POST /api/grading-items/{id}/attempts`
 - `POST /api/grading-items/{id}/retry`

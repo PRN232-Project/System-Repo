@@ -48,6 +48,7 @@ Không tiếp tục gửi `X-User-Id` hoặc `X-User-Role`.
 5. Lấy candidate qua `GET /api/exam-sessions/{id}/candidates`.
 6. Tạo và phân công trực tiếp qua `POST /api/grading-batches`.
 7. Theo dõi item; khi lecturer submit thì duyệt hoặc trả từng item.
+8. Xuất bảng điểm của batch bằng `GET /api/grading-batches/{id}/export-excel`.
 
 ## 5. Luồng Giảng viên/Local Agent
 
@@ -57,9 +58,10 @@ Không tiếp tục gửi `X-User-Id` hoặc `X-User-Role`.
 4. FE gọi Engine local `POST http://localhost:5174/api/local-grading/run-batch` với package và `localRootPath`.
 5. Engine tự gọi Plagiarism local rồi callback `/match`, `/plagiarism` và `/attempts` về Central.
 6. Khi mọi item ở trạng thái kết thúc, gọi `POST /api/grading-batches/{id}/submit`.
-7. Item bị trả sẽ có `ReturnedForCorrection` và batch là `NeedsCorrection`.
-8. Lecturer gọi item `retry`, gọi batch `start` lại, lấy execution package mới rồi chạy Engine.
-9. Sau khi chấm lại thành công, gọi `submit`; batch chuyển `Resubmitted` để khảo thí duyệt.
+7. Giảng viên có thể tải bảng điểm của batch được phân công bằng `GET /api/grading-batches/{id}/export-excel`; khảo thí dùng cùng API và có thể tải mọi batch. FE phải xử lý response dạng `blob` và giữ tên file từ header `Content-Disposition`.
+8. Item bị trả sẽ có `ReturnedForCorrection` và batch là `NeedsCorrection`.
+9. Lecturer gọi item `retry`, gọi batch `start` lại, lấy execution package mới rồi chạy Engine.
+10. Sau khi chấm lại thành công, gọi `submit`; batch chuyển `Resubmitted` để khảo thí duyệt.
 
 ## 6. Trạng thái FE phải xử lý
 
