@@ -53,11 +53,13 @@ Không tiếp tục gửi `X-User-Id` hoặc `X-User-Role`.
 
 1. `GET /api/grading-batches/mine` lấy batch được giao.
 2. `POST /api/grading-batches/{id}/start` chuyển sang `InProgress`.
-3. Agent tự chọn folder local; path không gửi lên server.
-4. `POST /api/grading-items/{id}/match` báo đã match hoặc thiếu bài.
-5. `POST /api/grading-items/{id}/attempts` gửi kết quả/lỗi kỹ thuật.
+3. `POST /api/grading-batches/{id}/execution-package` lấy snapshot đề và execution token.
+4. FE gọi Engine local `POST http://localhost:5174/api/local-grading/run-batch` với package và `localRootPath`.
+5. Engine tự gọi Plagiarism local rồi callback `/match`, `/plagiarism` và `/attempts` về Central.
 6. Khi mọi item ở trạng thái kết thúc, gọi `POST /api/grading-batches/{id}/submit`.
-7. Item bị trả sẽ có `ReturnedForCorrection`; lecturer retry và submit lại.
+7. Item bị trả sẽ có `ReturnedForCorrection` và batch là `NeedsCorrection`.
+8. Lecturer gọi item `retry`, gọi batch `start` lại, lấy execution package mới rồi chạy Engine.
+9. Sau khi chấm lại thành công, gọi `submit`; batch chuyển `Resubmitted` để khảo thí duyệt.
 
 ## 6. Trạng thái FE phải xử lý
 
@@ -75,8 +77,24 @@ Item: `Assigned`, `LocalMatched`, `Grading`, `Graded`, `TechnicalError`, `Missin
 - Sau mutation, dùng response từ server hoặc refetch; không tự đoán trạng thái.
 - Hiển thị `errorCode` riêng với `errorMessage` để giảng viên biết lỗi có retry được hay không.
 - Không gửi local path, source code hoặc secret lên Central Service.
+- `localRootPath` chỉ được FE gửi tới Engine tại `localhost`, tuyệt đối không gửi về Central.
+- `testCasesJson` của section phải là chuỗi chứa JSON array; không gửi một JSON object đơn lẻ.
+- Không lưu connection string Supabase của Engine trong source FE hoặc commit lên Git.
+- Với item, hiển thị riêng `plagiarismStatus`, `plagiarismViolationCount`, `plagiarismMaxSimilarity` và lỗi quét; không gộp lỗi plagiarism vào lỗi chấm.
+- Màn hình theo dõi kết nối `http://localhost:5176/gradingHub`, gọi `JoinExamGroup(examSessionId)` và lắng nghe `UpdateProgress`, `PlagiarismAlert`.
 
-## 8. HTTP conventions
+## 8. Cấu hình Engine local
+
+Máy chạy Engine tự cấu hình database bằng biến môi trường hoặc User Secrets:
+
+```powershell
+$env:ConnectionStrings__SupabaseConnection="Host=...;Database=...;Username=...;Password=..."
+dotnet run --project PRN232.GradingEngine.Api
+```
+
+Luồng chấm local dùng REST: FE gọi Engine; Engine gọi Plagiarism local và callback Central bằng execution token. RabbitMQ nằm ở nhánh realtime: Central/Plagiarism publish, Notification consume rồi push SignalR.
+
+## 9. HTTP conventions
 
 - `200`: query/update thành công.
 - `201`: tạo mới.

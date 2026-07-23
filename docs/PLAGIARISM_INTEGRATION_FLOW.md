@@ -1,43 +1,71 @@
-# Plagiarism Integration Flow v2
+# Luồng tích hợp Plagiarism đang sử dụng
+
+## Luồng thực tế
 
 ```text
-Local Grading Agent
-  -> POST /api/integration/fingerprints (hoặc event fingerprint.created)
-  -> Plagiarism Service lưu và so sánh
-  -> event plagiarism.alert.created
-  -> Central Workflow Service lưu cảnh báo
-  -> event notification.requested
-  -> Notification Service / SignalR
-  -> Dashboard Khảo thí
+FE giảng viên
+  -> POST localhost:5174/api/local-grading/run-batch
+Engine local
+  -> match folder sinh viên
+  -> chạy Band 0/1/2
+  -> POST localhost:5175/api/Plagiarism/check (WorkspacePath chỉ tồn tại local)
+Plagiarism Service
+  -> lưu report/comparison ở schema plag
+  -> publish plagiarism-alerts nếu có từ khóa cấm
+Engine local
+  -> GET report + comparisons
+  -> POST Central /api/integration/grading-items/{id}/plagiarism
+  -> POST Central /api/integration/grading-items/{id}/attempts
+Central Service
+  -> lưu trạng thái plagiarism trên GradingItem
+  -> tạo notification bền vững cho ExamOfficer
+  -> publish grading-results
+Notification Service
+  -> consume plagiarism-alerts/grading-results
+  -> SignalR Clients.Group(examSessionId)
 ```
 
-## Ownership
+## Contract Engine gọi Plagiarism
 
-| Thành phần | Trách nhiệm |
-|---|---|
-| Local Agent | Đọc source local, chuẩn hoá, tạo fingerprint |
-| Plagiarism Service | Lưu fingerprint, so sánh, tạo cảnh báo |
-| Central Service | Phân quyền, gắn cảnh báo vào ca thi/bài chấm |
-| Notification Service | Chỉ chuyển notification event qua SignalR |
-| Khảo thí | Xác minh và kết luận cảnh báo |
+`POST http://localhost:5175/api/Plagiarism/check`
 
-## Queue topology
-
-```text
-exchange: plagiarism.exchange (topic)
-  fingerprint.created -> plagiarism-fingerprint-worker
-  alert.created       -> central-plagiarism-alerts
-
-exchange: notification.exchange (topic)
-  notification.requested -> notification-signalr
+```json
+{
+  "submissionId": "grading-item-uuid",
+  "examId": "exam-session-uuid",
+  "studentId": "SE180001",
+  "workspacePath": "D:\\ExamSubmissions\\SE180001",
+  "bannedKeywords": ["Process.Start", "Registry"]
+}
 ```
 
-Mỗi service có queue riêng. Notification Service không consume `grading-jobs`, `grading-results` hoặc queue thuộc service khác.
+Sau đó Engine đọc:
 
-## Failure handling
+- `GET /api/Plagiarism/submissions/{submissionId}`
+- `GET /api/Plagiarism/exams/{examId}/comparisons`
 
-- API/event nhận fingerprint trả về thành công khi đã lưu idempotently.
-- Lỗi tạm thời retry tối đa theo cấu hình.
-- Payload sai chuyển dead-letter queue và ghi correlation id.
-- Plagiarism lỗi không đổi trạng thái kết quả chấm và không ngăn Khảo thí duyệt điểm.
+## Callback về Central
 
+`POST /api/integration/grading-items/{id}/plagiarism` dùng execution token:
+
+```json
+{
+  "status": "Completed",
+  "violationCount": 1,
+  "maxSimilarity": 0,
+  "rawJsonReport": "{...}",
+  "errorMessage": "",
+  "checkedAtUtc": "2026-07-23T00:00:00Z"
+}
+```
+
+Nếu Plagiarism không truy cập được, Engine callback `TechnicalError` cho nhánh plagiarism nhưng vẫn tiếp tục gửi attempt chấm. Lỗi quét không biến kết quả chấm hợp lệ thành lỗi kỹ thuật.
+
+## RabbitMQ
+
+- `grading-jobs`: Central publish khi phân công batch.
+- `grading-results`: Central publish các thay đổi/cảnh báo nghiệp vụ.
+- `plagiarism-alerts`: Plagiarism Service publish khi phát hiện từ khóa cấm.
+- Notification Service consume cả ba queue và push SignalR theo `ExamId`.
+
+RabbitMQ cấu hình qua `RabbitMQ:Enabled`, `HostName`, `Port`, `UserName`, `Password`. Mặc định local là `localhost:5672`, `guest/guest`.

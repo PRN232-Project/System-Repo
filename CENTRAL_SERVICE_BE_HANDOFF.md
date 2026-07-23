@@ -90,7 +90,13 @@ Room body:
   "timeoutSeconds": 15,
   "plagiarismKeywords": [],
   "sections": [
-    { "name": "Unit Tests", "weight": 10, "testFilter": "FullyQualifiedName~Unit" }
+    {
+      "name": "CRUD API",
+      "weight": 10,
+      "testFilter": "",
+      "apiProjectPath": "PRN223.API/PRN223.API.csproj",
+      "testCasesJson": "[{\"name\":\"Get list\",\"method\":\"GET\",\"urlPath\":\"/api/items\",\"expectedStatusCode\":200}]"
+    }
   ],
   "isActive": true
 }
@@ -140,6 +146,7 @@ Return result:
 - `GET /api/grading-batches/mine`
 - `GET /api/grading-batches/{id}` trả danh sách sinh viên và cấu hình mã đề.
 - `POST /api/grading-batches/{id}/start`
+- `POST /api/grading-batches/{id}/execution-package` cấp snapshot đề + execution token 4 giờ.
 - `POST /api/grading-items/{id}/match`
 - `POST /api/grading-items/{id}/attempts`
 - `POST /api/grading-items/{id}/retry`
@@ -170,10 +177,70 @@ Nếu Docker/engine lỗi, gửi `hasTechnicalError=true`, `errorCode` và `erro
 
 `clientRequestId` là idempotency key; gửi lại cùng key không tạo attempt trùng.
 
+## Kết nối Local Engine
+
+Sau khi gọi `start`, FE gọi `execution-package` bằng JWT giảng viên, rồi chuyển nguyên response cùng đường dẫn local sang Engine:
+
+`POST http://localhost:5174/api/local-grading/run-batch`
+
+```json
+{
+  "localRootPath": "D:\\ExamSubmissions\\PE-SU26-01",
+  "executionPackage": { "...": "response từ Central" }
+}
+```
+
+Engine tự match folder theo `studentCode`, chạy Band 0/1/2 và callback về:
+
+- `POST /api/integration/grading-items/{id}/match`
+- `POST /api/integration/grading-items/{id}/plagiarism`
+- `POST /api/integration/grading-items/{id}/attempts`
+
+Hai callback dùng execution token, không dùng JWT user và không nhận `WorkspacePath`.
+
+Section của mã đề hỗ trợ thêm:
+
+```json
+{
+  "name": "CRUD API",
+  "weight": 4,
+  "testFilter": "",
+  "apiProjectPath": "PRN223.API/PRN223.API.csproj",
+  "testCasesJson": "[{\"name\":\"Get list\",\"method\":\"GET\",\"urlPath\":\"/api/items\",\"expectedStatusCode\":200}]"
+}
+```
+
+`testCasesJson` là một chuỗi chứa **JSON array**. Central trả `400` nếu JSON sai cú pháp hoặc root không phải array. Nếu array rỗng, Engine không có test case Band 2 để cấp điểm cho section đó.
+
+### Cấu hình Engine trên máy giảng viên
+
+Engine vẫn dùng database riêng để lưu rubric và submission trong quá trình chạy. Không commit mật khẩu Supabase thật vào `appsettings.json`; mỗi máy cấu hình bằng User Secrets hoặc biến môi trường:
+
+```powershell
+$env:ConnectionStrings__SupabaseConnection="Host=...;Database=...;Username=...;Password=..."
+dotnet run --project PRN232.GradingEngine.Api
+```
+
+Engine gọi Plagiarism Service local tại `http://localhost:5175`, vì chỉ máy giảng viên có `WorkspacePath`. Engine chỉ callback báo cáo JSON, số vi phạm và độ tương đồng về Central; source và local path không được gửi về Central.
+
+Central kết nối với Engine local bằng REST. RabbitMQ không vận chuyển source hoặc request chấm; RabbitMQ vận chuyển sự kiện realtime từ Central/Plagiarism tới Notification Service.
+
+### Trạng thái plagiarism trong item
+
+`GET /api/grading-batches/{id}` trả thêm trên mỗi item:
+
+- `plagiarismStatus`: `Pending`, `Completed` hoặc `TechnicalError`.
+- `plagiarismViolationCount`, `plagiarismMaxSimilarity`.
+- `plagiarismReportJson`, `plagiarismErrorMessage`, `plagiarismCheckedAtUtc`.
+
+Plagiarism lỗi không làm attempt chấm điểm thành lỗi. FE hiển thị cảnh báo riêng và vẫn cho phép khảo thí xử lý kết quả.
+
 ## Notification
 
 - `GET /api/notifications`
 - `POST /api/notifications/{id}/read`
+- SignalR: `http://localhost:5176/gradingHub`, gọi `JoinExamGroup(examSessionId)`.
+- Client methods: `UpdateProgress` và `PlagiarismAlert`.
 
 ## Trạng thái
 
@@ -188,4 +255,16 @@ dotnet test PRN232.ExamAccount.sln
 dotnet ef database update --project PRN232.ExamAccount.Infrastructure --startup-project PRN232.ExamAccount.Api
 ```
 
+Nếu triển khai thủ công, chạy `engine-bridge-migration.sql` rồi `plagiarism-workflow-migration.sql`. Supabase hiện tại đã được áp dụng cả hai migration.
+
 EF migration history của service nằm tại `exam.__EFMigrationsHistory`, không dùng bảng history chung ở schema `public`.
+
+## Kiểm chứng gần nhất
+
+- Exam Account tests: `5/5` pass.
+- Grading Engine tests: `6/6` pass.
+- Plagiarism tests: `5/5` pass.
+- Notification build thành công nhưng project test hiện chưa có test case được discover.
+- E2E thật đã chạy qua ExamOfficer → Lecturer → Engine → Plagiarism → Central → RabbitMQ → Notification/SignalR.
+- E2E phát hiện đúng từ khóa cấm, Central lưu cảnh báo cho ExamOfficer và queue được consume hết.
+- Dữ liệu và submission E2E tạm đã được xóa sau khi kiểm tra.
